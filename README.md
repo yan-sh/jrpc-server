@@ -4,7 +4,7 @@ A library to create json-rpc server in the simplest way
 
 # Example
 
-```
+```haskell
 import JRPC
 import Data.Aeson
 import qualified Data.Text as T
