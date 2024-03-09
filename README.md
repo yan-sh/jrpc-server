@@ -1,4 +1,4 @@
-# JRPC: A simplest implementation of json-rpc server
+# JRPC-Server: A simplest implementation of json-rpc server
 
 A library to create json-rpc server in the simplest way
 
