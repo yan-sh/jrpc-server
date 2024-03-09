@@ -2,7 +2,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ImpredicativeTypes #-}
 
-module JRPC.Internal where
+module JRPC.Server.Internal where
 
 import Data.Aeson
 import Data.Text
@@ -13,7 +13,7 @@ import qualified Data.Vector as V
 import qualified Data.HashMap.Strict as HM
 import GHC.TypeLits
 import Data.Coerce
-import qualified JRPC.Types as JT
+import qualified JRPC.Server.Types as JT
 import Data.Scientific
 
 type Param (a :: Symbol) = JT.Param a (Maybe Value)

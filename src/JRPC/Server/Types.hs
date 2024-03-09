@@ -4,7 +4,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE BlockArguments #-}
 
-module JRPC.Types where
+module JRPC.Server.Types where
 
 import GHC.TypeLits
 import GHC.Prim

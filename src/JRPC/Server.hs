@@ -2,12 +2,12 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ImpredicativeTypes #-}
 
-module JRPC where
+module JRPC.Server where
 
 import Data.Aeson (Value, Object)
 import Data.Text (Text)
 import Data.Vector (Vector)
-import qualified JRPC.Internal as I
+import qualified JRPC.Server.Internal as I
 
 type ToMethod a = I.ToMethod a
 

@@ -2,7 +2,7 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE ImpredicativeTypes #-}
 
-import JRPC
+import JRPC.Server
 import Data.Aeson
 import qualified Data.Text as T
 import qualified Data.Vector as V

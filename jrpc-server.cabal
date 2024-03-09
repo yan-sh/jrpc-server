@@ -1,5 +1,5 @@
 cabal-version:      3.4
-name:               jrpc
+name:               jrpc-server
 version:            0.1.0.0
 license:            MIT
 license-file:       LICENSE
@@ -16,10 +16,10 @@ common warnings
 
 library
     import:           warnings, extensions
-    exposed-modules:  JRPC
+    exposed-modules:  JRPC.Server
     other-modules:
-      JRPC.Internal
-      JRPC.Types
+      JRPC.Server.Internal
+      JRPC.Server.Types
     build-depends:    base, ghc-prim, aeson, text, vector, unordered-containers, scientific
     hs-source-dirs:   src
     default-language: GHC2021
@@ -27,7 +27,7 @@ library
 
 executable example
     import:           warnings, extensions
-    build-depends:    jrpc, vector, text, aeson, base
+    build-depends:    jrpc-server, vector, text, aeson, base
     main-is:          Main.hs
     hs-source-dirs:   app
 

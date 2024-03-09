@@ -39,4 +39,12 @@ main = do
       , "method" .= String "reverse"
       , "params" .= object ["string" .= String "123"]
       ]
+
+```
+
+```console
+$ cabal run
+Object (fromList [("id",Number 1.0),("jsonrpc",String "2.0"),("result",String "321")])
+Object (fromList [("id",Number 1.0),("jsonrpc",String "2.0"),("result",String "321")])
+Object (fromList [("error",Object (fromList [("code",Number (-32600.0)),("data",Null),("message",String "Invalid request")])),("id",Null),("jsonrpc",String "2.0")])
 ```
