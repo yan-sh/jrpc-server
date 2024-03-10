@@ -2,7 +2,6 @@ cabal-version:      3.4
 name:               jrpc-server
 version:            0.1.0.0
 license:            MIT
-license-file:       LICENSE
 author:             Yan Shkurinsky
 maintainer:         yan.shkurinsky@gmail.com
 category:           Network
@@ -20,7 +19,7 @@ library
     other-modules:
       JRPC.Server.Internal
       JRPC.Server.Types
-    build-depends:    base, ghc-prim, aeson, text, vector, unordered-containers, scientific
+    build-depends:    base, ghc-prim, aeson, text, vector, unordered-containers, scientific, jrpc-types
     hs-source-dirs:   src
     default-language: GHC2021
 

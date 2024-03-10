@@ -31,7 +31,7 @@ getParam :: Param a -> Maybe Value
 getParam = I.getParam
 {-# INLINE getParam #-}
 
-makeMethod :: ToMethod f => f -> Method
+makeMethod :: ToMethod f IO => f -> Method
 makeMethod = I.makeMethod
 {-# INLINE makeMethod #-}
 
