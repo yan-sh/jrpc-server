@@ -40,6 +40,21 @@ main = do
       , "params" .= object ["string" .= String "123"]
       ]
 
+    print =<< do
+    run methodMap Nothing $ object
+      [ "jsonrpc" .= String "2.0"
+      , "id" .= Number 1
+      , "method" .= String "reverse"
+      , "params" .= Array (V.fromList [String "123"])
+      ]
+
+    print =<< do
+    run methodMap Nothing $ object
+      [ "jsonrpc" .= String "2.0"
+      , "id" .= Number 1
+      , "method" .= String "reverse"
+      ]
+
 ```
 
 ```console
