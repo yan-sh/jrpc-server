@@ -16,9 +16,7 @@ common warnings
 library
     import:           warnings, extensions
     exposed-modules:  JRPC.Server
-    other-modules:
-      JRPC.Server.Internal
-      JRPC.Server.Types
+    other-modules:    JRPC.Server.Internal
     build-depends:    base, ghc-prim, aeson, text, vector, unordered-containers, scientific, jrpc-types
     hs-source-dirs:   src
     default-language: GHC2021
