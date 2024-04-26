@@ -2,5 +2,5 @@ packages: .
 
 source-repository-package
   type: git
-  location: https://github.com/willbasky/jrpc-types.git
-  tag: 7eb7498f7f031dd956b334e07eb3848c77a20a58
+  location: https://github.com/yan-sh/jrpc-types.git
+  tag: 381ac8f7fb0432e7064e8f8bb5827d7d3652661b
