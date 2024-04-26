@@ -4,7 +4,7 @@
 
 module JRPC.Server where
 
-import Data.Aeson (Value, Object)
+import Data.Aeson (Value)
 import Data.Text (Text)
 import Data.Vector (Vector)
 import qualified JRPC.Server.Internal as I
@@ -23,7 +23,7 @@ fromList :: [(Text, Method)] -> MethodMap
 fromList = I.fromList
 {-# INLINE fromList #-}
 
-makeCustomError :: Text -> Maybe Object -> Int -> CustomError
+makeCustomError :: Text -> Maybe Value -> Int -> CustomError
 makeCustomError = I.makeCustomError
 {-# INLINE makeCustomError #-}
 
@@ -41,5 +41,3 @@ run :: MethodMap
     -> IO Value
 run = I.run
 {-# INLINE run #-}
-
-

@@ -5,15 +5,15 @@
 module JRPC.Server.Internal where
 
 import Data.Aeson
-import Data.Text
-import Data.Maybe
+import Data.Text ( Text )
+import Data.Maybe ( fromMaybe )
 import qualified Data.Aeson.KeyMap as KM
 import qualified Data.Aeson.Key as K
 import qualified Data.Vector as V
 import qualified Data.HashMap.Strict as HM
-import Data.Coerce
+import Data.Coerce ( coerce )
 import qualified JRPC.Types as JT
-import Data.Scientific
+import Data.Scientific ( Scientific )
 
 type Param = JT.Param
 
@@ -29,7 +29,7 @@ fromList :: [(Text, Method)] -> MethodMap
 fromList = JT.MethodMap . HM.fromList
 {-# INLINE fromList #-}
 
-makeCustomError :: Text -> Maybe Object -> Int -> CustomError
+makeCustomError :: Text -> Maybe Value -> Int -> CustomError
 makeCustomError = JT.CustomError
 {-# INLINE makeCustomError #-}
 
@@ -58,13 +58,13 @@ run (JT.MethodMap methodMap) mbStrategy = go True
         invalidReq = pure $ jsonFromError JT.InvalidRequest
 
     runOnArray :: V.Vector Value -> IO Value
-    runOnArray = fmap Array . strategy . fmap (go False) 
+    runOnArray = fmap Array . strategy . fmap (go False)
 
     responseToJSON
       :: Either
           (JT.JsonRpcError Scientific)
           (Scientific, Either CustomError Value)
-      -> Value 
+      -> Value
     responseToJSON = either jsonFromError jsonFromResult
       where
         jsonFromResult (id_, res) = case res of
@@ -94,7 +94,6 @@ run (JT.MethodMap methodMap) mbStrategy = go True
             Object obj_ -> Just $ Right obj_
             Array arr -> Just $ Left arr
             _ -> Nothing
-          
 
         pure $ case HM.lookup method methodMap of
           Nothing -> pure $ Left $ JT.MethodNotFound id_
@@ -114,14 +113,14 @@ run (JT.MethodMap methodMap) mbStrategy = go True
     strategy :: V.Vector (IO a) -> IO (V.Vector a)
     strategy = fromMaybe sequence mbStrategy
 
-    mkJsonRpcError :: Maybe Scientific -> Text -> Maybe Object -> Int -> Value
+    mkJsonRpcError :: Maybe Scientific -> Text -> Maybe Value -> Int -> Value
     mkJsonRpcError mbId message mbData code = object
-      [ "id" .= fromMaybe Null (fmap Number mbId),
+      [ "id" .= maybe Null Number mbId,
         "jsonrpc" .= String "2.0",
         "error" .= object
           [ "code" .= Number (realToFrac code),
             "message" .= coerce @_ @Text message,
-            "data" .= fromMaybe Null (fmap Object $ coerce mbData)
+            "data" .= fromMaybe Null mbData
           ]
       ]
 
