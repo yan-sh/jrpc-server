@@ -38,6 +38,6 @@ makeMethod = I.makeMethod
 run :: MethodMap
     -> Maybe (forall a . Vector (IO a) -> IO (Vector a))
     -> Value
-    -> IO Value
+    -> IO (Maybe Value)
 run = I.run
 {-# INLINE run #-}

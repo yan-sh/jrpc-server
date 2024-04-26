@@ -44,21 +44,24 @@ makeMethod = JT.Method . JT.mkMethod
 run :: MethodMap
     -> Maybe (forall a . V.Vector (IO a) -> IO (V.Vector a))
     -> Value
-    -> IO Value
+    -> IO (Maybe Value)
 run (JT.MethodMap methodMap) mbStrategy = go True
 
   where
 
-    go :: Bool -> Value -> IO Value
+    go :: Bool -> Value -> IO (Maybe Value)
     go arrayIsAllowed = \case
-        Object obj -> fmap responseToJSON $ runOnObject obj
-        Array arr | arrayIsAllowed -> runOnArray arr
+        Object obj -> fmap responseToJSON <$> runOnObject obj
+        Array arr | arrayIsAllowed -> fmap Just (runOnArray arr)
         _ -> invalidReq
       where
-        invalidReq = pure $ jsonFromError JT.InvalidRequest
+        invalidReq = pure $ Just $ jsonFromError JT.InvalidRequest
 
     runOnArray :: V.Vector Value -> IO Value
-    runOnArray = fmap Array . strategy . fmap (go False)
+    runOnArray =
+        fmap (Array . V.fromList . V.foldr (\x acc -> maybe acc (:acc) x) [])
+      . strategy
+      . fmap (go False)
 
     responseToJSON
       :: Either
@@ -73,31 +76,46 @@ run (JT.MethodMap methodMap) mbStrategy = go True
 
     runOnObject
       :: Object
-      -> IO ( Either (JT.JsonRpcError Scientific)
-              (Scientific, Either CustomError Value)
+      -> IO ( Maybe
+              ( Either
+                  (JT.JsonRpcError Scientific)
+                  (Scientific, Either CustomError Value)
+              )
             )
-    runOnObject obj = do
-      fromMaybe (pure $ Left JT.InvalidRequest) do
+    runOnObject obj = go_ mbId mbMethod mbParams
 
-        id_ <- do
+      where
+
+        go_ mbId_ (Just method) (Just params) = do
+          case HM.lookup method methodMap of
+            Just (JT.Method f) -> do
+              !res <- f params
+              pure do
+                case mbId_ of
+                  Nothing -> Nothing
+                  Just id_ -> Just $ Right $ (id_, coerce res)
+            Nothing -> pure do
+              case mbId_ of
+                Nothing -> Nothing
+                Just id_ -> Just $ Left $ JT.MethodNotFound id_
+
+        go_ _ _ _ = pure $ Just $ Left JT.InvalidRequest
+
+        mbId =
           KM.lookup (K.fromText "id") obj >>= \case
             Number n -> Just n
             _ -> Nothing
 
-        method <- do
+        mbMethod =
           KM.lookup (K.fromText "method") obj >>= \case
             String s -> Just s
             _ -> Nothing
 
-        params <- do
+        mbParams =
           KM.lookup (K.fromText "params") obj >>= \case
             Object obj_ -> Just $ Right obj_
             Array arr -> Just $ Left arr
             _ -> Nothing
-
-        pure $ case HM.lookup method methodMap of
-          Nothing -> pure $ Left $ JT.MethodNotFound id_
-          Just (JT.Method f) -> fmap (Right . (id_,) . coerce) (f params)
 
     jsonFromError :: JT.JsonRpcError Scientific -> Value
     jsonFromError = \case
