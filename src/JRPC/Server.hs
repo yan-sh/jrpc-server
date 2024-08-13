@@ -19,7 +19,7 @@ type Method = I.Method
 
 type MethodMap = I.MethodMap
 
-fromList :: [(Text, Method)] -> MethodMap
+fromList :: [(Text, Method m)] -> MethodMap m
 fromList = I.fromList
 {-# INLINE fromList #-}
 
@@ -31,13 +31,14 @@ getParam :: Param a -> Maybe Value
 getParam = I.getParam
 {-# INLINE getParam #-}
 
-makeMethod :: ToMethod f IO => f -> Method
+makeMethod :: ToMethod f m => f -> Method m
 makeMethod = I.makeMethod
 {-# INLINE makeMethod #-}
 
-run :: MethodMap
-    -> Maybe (forall a . Vector (IO a) -> IO (Vector a))
+run :: Monad m
+    => MethodMap m
+    -> Maybe (forall a . Vector (m a) -> m (Vector a))
     -> Value
-    -> IO (Maybe Value)
+    -> m (Maybe Value)
 run = I.run
 {-# INLINE run #-}

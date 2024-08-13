@@ -10,7 +10,7 @@ import Data.Aeson
 import qualified Data.Text as T
 import qualified Data.Vector as V
 
-methodMap :: MethodMap
+methodMap :: MethodMap IO
 methodMap = fromList
   [ ( "reverse"
     , makeMethod reverseMethod
@@ -40,7 +40,7 @@ main = do
       , "params" .= object ["string" .= String "123"]
       ]
 
-    print =<< do
+  print =<< do
     run methodMap Nothing $ object
       [ "jsonrpc" .= String "2.0"
       , "id" .= Number 1
@@ -48,18 +48,25 @@ main = do
       , "params" .= Array (V.fromList [String "123"])
       ]
 
-    print =<< do
+  print =<< do
     run methodMap Nothing $ object
       [ "jsonrpc" .= String "2.0"
       , "id" .= Number 1
       , "method" .= String "reverse"
       ]
 
+  print =<< do
+    run methodMap Nothing $ object
+      [ "jsonrpc" .= String "2.0"
+      , "method" .= String "reverse"
+      , "params" .= Array (V.fromList [String "123"])
+      ]
 ```
 
 ```console
 $ cabal run
-Object (fromList [("id",Number 1.0),("jsonrpc",String "2.0"),("result",String "321")])
-Object (fromList [("id",Number 1.0),("jsonrpc",String "2.0"),("result",String "321")])
-Object (fromList [("error",Object (fromList [("code",Number (-32600.0)),("data",Null),("message",String "Invalid request")])),("id",Null),("jsonrpc",String "2.0")])
+Just (Object (fromList [("id",Number 1.0),("jsonrpc",String "2.0"),("result",String "321")]))
+Just (Object (fromList [("id",Number 1.0),("jsonrpc",String "2.0"),("result",String "321")]))
+Just (Object (fromList [("error",Object (fromList [("code",Number (-32600.0)),("data",Null),("message",String "Invalid request")])),("id",Null),("jsonrpc",String "2.0")]))
+Nothing
 ```

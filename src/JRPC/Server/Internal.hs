@@ -25,7 +25,7 @@ type Method = JT.Method
 
 type MethodMap = JT.MethodMap
 
-fromList :: [(Text, Method)] -> MethodMap
+fromList :: [(Text, Method m)] -> MethodMap m
 fromList = JT.MethodMap . HM.fromList
 {-# INLINE fromList #-}
 
@@ -37,19 +37,20 @@ getParam :: Param a -> Maybe Value
 getParam (JT.Param p) = p
 {-# INLINE getParam #-}
 
-makeMethod :: ToMethod f IO => f -> Method
+makeMethod :: ToMethod f m => f -> Method m
 makeMethod = JT.Method . JT.mkMethod
 {-# INLINE makeMethod #-}
 
-run :: MethodMap
-    -> Maybe (forall a . V.Vector (IO a) -> IO (V.Vector a))
+run :: forall m . Monad m
+    => MethodMap m
+    -> Maybe (forall a . V.Vector (m a) -> m (V.Vector a))
     -> Value
-    -> IO (Maybe Value)
+    -> m (Maybe Value)
 run (JT.MethodMap methodMap) mbStrategy = go True
 
   where
 
-    go :: Bool -> Value -> IO (Maybe Value)
+    go :: Bool -> Value -> m (Maybe Value)
     go arrayIsAllowed = \case
         Object obj -> fmap responseToJSON <$> runOnObject obj
         Array arr | arrayIsAllowed -> fmap Just (runOnArray arr)
@@ -57,7 +58,7 @@ run (JT.MethodMap methodMap) mbStrategy = go True
       where
         invalidReq = pure $ Just $ jsonFromError JT.InvalidRequest
 
-    runOnArray :: V.Vector Value -> IO Value
+    runOnArray :: V.Vector Value -> m Value
     runOnArray =
         fmap (Array . V.fromList . V.foldr (\x acc -> maybe acc (:acc) x) [])
       . strategy
@@ -76,7 +77,7 @@ run (JT.MethodMap methodMap) mbStrategy = go True
 
     runOnObject
       :: Object
-      -> IO ( Maybe
+      -> m  ( Maybe
               ( Either
                   (JT.JsonRpcError Scientific)
                   (Scientific, Either CustomError Value)
@@ -86,8 +87,17 @@ run (JT.MethodMap methodMap) mbStrategy = go True
 
       where
 
+        go_ :: Maybe Scientific
+            -> Maybe Text
+            -> Maybe (Either Array Object)
+            -> m  ( Maybe
+                    ( Either
+                        (JT.JsonRpcError Scientific)
+                        (Scientific, Either CustomError Value)
+                    )
+                  )
         go_ mbId_ (Just method) (Just params) = do
-          case HM.lookup method methodMap of
+          case HM.lookup method (methodMap :: HM.HashMap Text (JT.Method m)) of
             Just (JT.Method f) -> do
               !res <- f params
               pure do
@@ -117,6 +127,8 @@ run (JT.MethodMap methodMap) mbStrategy = go True
             Array arr -> Just $ Left arr
             _ -> Nothing
 
+    strategy = fromMaybe sequence mbStrategy
+
     jsonFromError :: JT.JsonRpcError Scientific -> Value
     jsonFromError = \case
       JT.ParseError        -> mkError "Parse error"             (negate 32700)
@@ -127,9 +139,6 @@ run (JT.MethodMap methodMap) mbStrategy = go True
       where
         mkErrorId id_ message c = mkJsonRpcError (Just id_) message Nothing c
         mkError message c = mkJsonRpcError Nothing message Nothing c
-
-    strategy :: V.Vector (IO a) -> IO (V.Vector a)
-    strategy = fromMaybe sequence mbStrategy
 
     mkJsonRpcError :: Maybe Scientific -> Text -> Maybe Value -> Int -> Value
     mkJsonRpcError mbId message mbData code = object

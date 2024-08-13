@@ -7,7 +7,7 @@ import Data.Aeson
 import qualified Data.Text as T
 import qualified Data.Vector as V
 
-methodMap :: MethodMap
+methodMap :: MethodMap IO
 methodMap = fromList
   [ ( "reverse"
     , makeMethod reverseMethod
