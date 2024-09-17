@@ -8,6 +8,7 @@ import Data.Aeson (Value)
 import Data.Text (Text)
 import Data.Vector (Vector)
 import qualified JRPC.Server.Internal as I
+import Data.ByteString.Lazy
 
 type ToMethod a = I.ToMethod a
 
@@ -35,10 +36,20 @@ makeMethod :: ToMethod f m => f -> Method m
 makeMethod = I.makeMethod
 {-# INLINE makeMethod #-}
 
-run :: Monad m
-    => MethodMap m
-    -> Maybe (forall a . Vector (m a) -> m (Vector a))
-    -> Value
-    -> m (Maybe Value)
+runOnValue
+  :: Monad m
+  => MethodMap m
+  -> Maybe (forall a . Vector (m a) -> m (Vector a))
+  -> Value
+  -> m (Maybe Value)
+runOnValue  = I.runOnValue
+{-# INLINE runOnValue #-}
+
+run
+  :: Monad m
+  => MethodMap m
+  -> Maybe (forall a . Vector (m a) -> m (Vector a))
+  -> ByteString
+  -> m (Maybe Value)
 run = I.run
 {-# INLINE run #-}

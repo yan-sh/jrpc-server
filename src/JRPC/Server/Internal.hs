@@ -6,6 +6,7 @@ module JRPC.Server.Internal where
 
 import Data.Aeson
 import Data.Text ( Text )
+import Data.ByteString.Lazy
 import Data.Maybe ( fromMaybe )
 import qualified Data.Aeson.KeyMap as KM
 import qualified Data.Aeson.Key as K
@@ -41,12 +42,48 @@ makeMethod :: ToMethod f m => f -> Method m
 makeMethod = JT.Method . JT.mkMethod
 {-# INLINE makeMethod #-}
 
+jsonFromError :: JT.JsonRpcError Scientific -> Value
+jsonFromError = \case
+  JT.ParseError        -> mkError "Parse error"             (negate 32700)
+  JT.InvalidRequest    -> mkError "Invalid request"         (negate 32600)
+  JT.MethodNotFound id_ -> mkErrorId id_ "Method not found" (negate 32601)
+  JT.InvalidParams id_  -> mkErrorId id_ "Invalid params"   (negate 32602)
+  JT.InternalError id_  -> mkErrorId id_ "Internal error"   (negate 32603)
+  where
+    mkErrorId id_ message c = mkJsonRpcError (Just id_) message Nothing c    
+    mkError message c = mkJsonRpcError Nothing message Nothing c
+{-# INLINE jsonFromError #-}
+
+mkJsonRpcError :: Maybe Scientific -> Text -> Maybe Value -> Int -> Value
+mkJsonRpcError mbId message mbData code = object
+  [ "id" .= maybe Null Number mbId,
+    "jsonrpc" .= String "2.0",
+    "error" .= object
+      [ "code" .= Number (realToFrac code),
+        "message" .= coerce @_ @Text message,
+        "data" .= fromMaybe Null mbData
+      ]
+  ]
+{-# INLINE mkJsonRpcError #-}
+
 run :: forall m . Monad m
     => MethodMap m
     -> Maybe (forall a . V.Vector (m a) -> m (V.Vector a))
-    -> Value
+    -> ByteString
     -> m (Maybe Value)
-run (JT.MethodMap methodMap) mbStrategy = go True
+run mm mbStrategy bs = do
+  case decode' bs of
+    Nothing -> pure $ Just $ jsonFromError JT.ParseError
+    Just v -> runOnValue mm mbStrategy v
+{-# INLINE run #-}
+
+runOnValue
+  :: forall m . Monad m
+  => MethodMap m
+  -> Maybe (forall a . V.Vector (m a) -> m (V.Vector a))
+  -> Value
+  -> m (Maybe Value)
+runOnValue (JT.MethodMap methodMap) mbStrategy = go True
 
   where
 
@@ -129,32 +166,10 @@ run (JT.MethodMap methodMap) mbStrategy = go True
 
     strategy = fromMaybe sequence mbStrategy
 
-    jsonFromError :: JT.JsonRpcError Scientific -> Value
-    jsonFromError = \case
-      JT.ParseError        -> mkError "Parse error"             (negate 32700)
-      JT.InvalidRequest    -> mkError "Invalid request"         (negate 32600)
-      JT.MethodNotFound id_ -> mkErrorId id_ "Method not found" (negate 32601)
-      JT.InvalidParams id_  -> mkErrorId id_ "Invalid params"   (negate 32602)
-      JT.InternalError id_  -> mkErrorId id_ "Internal error"   (negate 32603)
-      where
-        mkErrorId id_ message c = mkJsonRpcError (Just id_) message Nothing c
-        mkError message c = mkJsonRpcError Nothing message Nothing c
-
-    mkJsonRpcError :: Maybe Scientific -> Text -> Maybe Value -> Int -> Value
-    mkJsonRpcError mbId message mbData code = object
-      [ "id" .= maybe Null Number mbId,
-        "jsonrpc" .= String "2.0",
-        "error" .= object
-          [ "code" .= Number (realToFrac code),
-            "message" .= coerce @_ @Text message,
-            "data" .= fromMaybe Null mbData
-          ]
-      ]
-
     mkJsonRpcResult :: Scientific -> Value -> Value
     mkJsonRpcResult id_ res = object
       [ "id" .= Number id_,
         "jsonrpc" .= String "2.0",
         "result" .= res
       ]
-{-# INLINE run#-}
+{-# INLINE runOnValue #-}
