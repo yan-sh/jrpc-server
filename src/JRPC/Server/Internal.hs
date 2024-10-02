@@ -14,7 +14,6 @@ import qualified Data.Vector as V
 import qualified Data.HashMap.Strict as HM
 import Data.Coerce ( coerce )
 import qualified JRPC.Types as JT
-import Data.Scientific ( Scientific )
 
 type Param = JT.Param
 
@@ -25,6 +24,16 @@ type ToMethod = JT.ToMethod
 type Method = JT.Method
 
 type MethodMap = JT.MethodMap
+
+type Response = Either (JT.JsonRpcError Id) (Id, Either CustomError Value)
+
+data Id = IdNumber !Int | IdString !Text
+
+idToValue :: Id -> Value
+idToValue = \case
+  IdNumber n -> Number (fromInteger $ toInteger n)
+  IdString s -> String s
+{-# INLINE idToValue #-}
 
 fromList :: [(Text, Method m)] -> MethodMap m
 fromList = JT.MethodMap . HM.fromList
@@ -42,7 +51,7 @@ makeMethod :: ToMethod f m => f -> Method m
 makeMethod = JT.Method . JT.mkMethod
 {-# INLINE makeMethod #-}
 
-jsonFromError :: JT.JsonRpcError Scientific -> Value
+jsonFromError :: JT.JsonRpcError Id -> Value
 jsonFromError = \case
   JT.ParseError        -> mkError "Parse error"             (negate 32700)
   JT.InvalidRequest    -> mkError "Invalid request"         (negate 32600)
@@ -54,9 +63,9 @@ jsonFromError = \case
     mkError message c = mkJsonRpcError Nothing message Nothing c
 {-# INLINE jsonFromError #-}
 
-mkJsonRpcError :: Maybe Scientific -> Text -> Maybe Value -> Int -> Value
+mkJsonRpcError :: Maybe Id -> Text -> Maybe Value -> Int -> Value
 mkJsonRpcError mbId message mbData code = object
-  [ "id" .= maybe Null Number mbId,
+  [ "id" .= maybe Null idToValue mbId,
     "jsonrpc" .= String "2.0",
     "error" .= object
       [ "code" .= Number (realToFrac code),
@@ -76,6 +85,22 @@ run mm mbStrategy bs = do
     Nothing -> pure $ Just $ jsonFromError JT.ParseError
     Just v -> runOnValue mm mbStrategy v
 {-# INLINE run #-}
+
+responseToJSON :: Response -> Value
+responseToJSON = either jsonFromError jsonFromResult
+  where
+    jsonFromResult (id_, res) = case res of
+      Left (JT.CustomError m d c) -> mkJsonRpcError (Just id_) m d c
+      Right result_ -> mkJsonRpcResult id_ result_
+{-# INLINE responseToJSON #-}
+
+mkJsonRpcResult :: Id -> Value -> Value
+mkJsonRpcResult id_ res = object
+  [ "id" .= idToValue id_,
+    "jsonrpc" .= String "2.0",
+    "result" .= res
+  ]
+{-# INLINE mkJsonRpcResult #-}
 
 runOnValue
   :: forall m . Monad m
@@ -101,56 +126,25 @@ runOnValue (JT.MethodMap methodMap) mbStrategy = go True
       . strategy
       . fmap (go False)
 
-    responseToJSON
-      :: Either
-          (JT.JsonRpcError Scientific)
-          (Scientific, Either CustomError Value)
-      -> Value
-    responseToJSON = either jsonFromError jsonFromResult
-      where
-        jsonFromResult (id_, res) = case res of
-          Left (JT.CustomError m d c) -> mkJsonRpcError (Just id_) m d c
-          Right result_ -> mkJsonRpcResult id_ result_
-
-    runOnObject
-      :: Object
-      -> m  ( Maybe
-              ( Either
-                  (JT.JsonRpcError Scientific)
-                  (Scientific, Either CustomError Value)
-              )
-            )
-    runOnObject obj = go_ mbId mbMethod mbParams
+    runOnObject :: Object -> m (Maybe Response)
+    runOnObject obj = go_ mbMethod mbParams
 
       where
 
-        go_ :: Maybe Scientific
-            -> Maybe Text
-            -> Maybe (Either Array Object)
-            -> m  ( Maybe
-                    ( Either
-                        (JT.JsonRpcError Scientific)
-                        (Scientific, Either CustomError Value)
-                    )
-                  )
-        go_ mbId_ (Just method) (Just params) = do
+        go_ :: Maybe Text -> Maybe (Either Array Object) -> m (Maybe Response) 
+        go_ (Just method) (Just params) = do
           case HM.lookup method (methodMap :: HM.HashMap Text (JT.Method m)) of
             Just (JT.Method f) -> do
               !res <- f params
-              pure do
-                case mbId_ of
-                  Nothing -> Nothing
-                  Just id_ -> Just $ Right $ (id_, coerce res)
-            Nothing -> pure do
-              case mbId_ of
-                Nothing -> Nothing
-                Just id_ -> Just $ Left $ JT.MethodNotFound id_
+              pure $ withMbId $ Right . (, coerce res)
+            Nothing -> pure $ withMbId $ Left . JT.MethodNotFound
 
-        go_ _ _ _ = pure $ Just $ Left JT.InvalidRequest
+        go_ _ _ = pure $ Just $ Left JT.InvalidRequest
 
-        mbId =
+        withMbId f =
           KM.lookup (K.fromText "id") obj >>= \case
-            Number n -> Just n
+            Number n -> Just $ f $ IdNumber (round n)
+            String s -> Just $ f $ IdString s
             _ -> Nothing
 
         mbMethod =
@@ -166,10 +160,4 @@ runOnValue (JT.MethodMap methodMap) mbStrategy = go True
 
     strategy = fromMaybe sequence mbStrategy
 
-    mkJsonRpcResult :: Scientific -> Value -> Value
-    mkJsonRpcResult id_ res = object
-      [ "id" .= Number id_,
-        "jsonrpc" .= String "2.0",
-        "result" .= res
-      ]
 {-# INLINE runOnValue #-}
